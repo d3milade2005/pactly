@@ -1,0 +1,91 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pactly
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pactly}
+    username: ${DB_USERNAME:pactly}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        default_schema: public
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - https://www.googleapis.com/auth/gmail.readonly
+              - https://www.googleapis.com/auth/gmail.send
+            redirect-uri: "${APP_BASE_URL}/oauth2/callback/google"
+            authorization-grant-type: authorization_code
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: email
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    com.pactly: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+
+pactly:
+  api-key: ${PACTLY_API_KEY}
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+  encryption:
+    secret-key: ${ENCRYPTION_SECRET_KEY}
+
+  nlp:
+    service-url: ${NLP_SERVICE_URL:http://localhost:8000}
+    timeout-seconds: ${NLP_SERVICE_TIMEOUT_SECONDS:30}
+
+  llm:
+    provider: ${LLM_PROVIDER:openai}
+    openai-api-key: ${OPENAI_API_KEY:}
+
+  gmail:
+    poll-interval-minutes: ${GMAIL_POLL_INTERVAL_MINUTES:10}
+    max-emails-per-poll: ${GMAIL_MAX_EMAILS_PER_POLL:50}
+
+  reminders:
+    hours-before-deadline: ${REMINDER_HOURS_BEFORE_DEADLINE:24}
+    staleness-threshold-days: ${REMINDER_STALENESS_THRESHOLD_DAYS:3}
