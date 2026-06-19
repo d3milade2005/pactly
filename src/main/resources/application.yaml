@@ -2,6 +2,24 @@ spring:
   application:
     name: pactly
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
+              - https://www.googleapis.com/auth/gmail.readonly
+            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:pactly}
     username: ${DB_USERNAME}
@@ -42,3 +60,8 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: 86400000  # 24 hours
