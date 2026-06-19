@@ -1,6 +1,9 @@
 package com.pactly.app.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -9,6 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@Table(name = "keyword_rules")
 public class KeywordRule {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

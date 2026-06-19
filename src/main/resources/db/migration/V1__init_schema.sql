@@ -1,3 +1,7 @@
+-- Ensure pgcrypto is available for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Users
 CREATE TABLE users (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(255) NOT NULL UNIQUE,
@@ -6,7 +10,7 @@ CREATE TABLE users (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-
+-- OAuth tokens
 CREATE TABLE oauth_tokens (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -20,7 +24,7 @@ CREATE TABLE oauth_tokens (
     UNIQUE (user_id, provider)
 );
 
-
+-- Contacts
 CREATE TABLE contacts (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -32,6 +36,7 @@ CREATE TABLE contacts (
     UNIQUE (user_id, email)
 );
 
+-- Raw messages
 CREATE TABLE raw_messages (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -49,6 +54,7 @@ CREATE TABLE raw_messages (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Commitments (includes category column from previous V2)
 CREATE TABLE commitments (
      id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
      user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -66,10 +72,11 @@ CREATE TABLE commitments (
      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
      updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
      fulfilled_at        TIMESTAMPTZ,
-     snoozed_until       TIMESTAMPTZ
+     snoozed_until       TIMESTAMPTZ,
+     category            VARCHAR(20) NOT NULL DEFAULT 'COMMITMENT'
 );
 
-
+-- Commitment participants
 CREATE TABLE commitment_participants (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     commitment_id       UUID NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
@@ -79,7 +86,7 @@ CREATE TABLE commitment_participants (
     UNIQUE (commitment_id, contact_id, role)
 );
 
-
+-- Outbox events
 CREATE TABLE outbox_events (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_type      VARCHAR(100) NOT NULL,          -- Commitment, RawMessage
@@ -92,25 +99,43 @@ CREATE TABLE outbox_events (
     dispatched_at       TIMESTAMPTZ
 );
 
+-- Notification channels (from previous V3)
+CREATE TABLE notification_channels (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel_type    VARCHAR(20) NOT NULL,   -- EMAIL, WHATSAPP, SMS, TELEGRAM, SLACK
+    destination     TEXT NOT NULL,          -- phone number, email, webhook URL
+    label           VARCHAR(100),           -- user-defined: "My WhatsApp", "Work Email"
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- Idempotency check on every Gmail poll
-CREATE UNIQUE INDEX idx_raw_messages_fingerprint
-    ON raw_messages(message_fingerprint);
+-- Keyword rules (from previous V3)
+CREATE TABLE keyword_rules (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name            VARCHAR(100) NOT NULL,  -- "Job opportunities"
+    keywords        TEXT[] NOT NULL,        -- ["interview", "offer letter"]
+    match_all       BOOLEAN NOT NULL DEFAULT false, -- false = ANY keyword, true = ALL keywords
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- Dashboard query: user's commitments by status
-CREATE INDEX idx_commitments_user_status
-    ON commitments(user_id, status);
+-- Join table for keyword rules and channels
+CREATE TABLE keyword_rule_channels (
+    keyword_rule_id         UUID NOT NULL REFERENCES keyword_rules(id) ON DELETE CASCADE,
+    notification_channel_id UUID NOT NULL REFERENCES notification_channels(id) ON DELETE CASCADE,
+    PRIMARY KEY (keyword_rule_id, notification_channel_id)
+);
 
--- Nudge scheduler: find overdue/upcoming commitments
-CREATE INDEX idx_commitments_due_date
-    ON commitments(due_date)
-    WHERE status = 'PENDING';
-
--- Outbox poller: find unprocessed events
-CREATE INDEX idx_outbox_pending
-    ON outbox_events(created_at)
-    WHERE status = 'PENDING';
-
--- Contact lookup during extraction
-CREATE INDEX idx_contacts_user_email
-    ON contacts(user_id, email);
+-- Indexes
+CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_messages_fingerprint ON raw_messages(message_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_commitments_user_status ON commitments(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_commitments_due_date ON commitments(due_date) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(created_at) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_contacts_user_email ON contacts(user_id, email);
+CREATE INDEX IF NOT EXISTS idx_commitments_user_category ON commitments(user_id, category);
+CREATE INDEX IF NOT EXISTS idx_keyword_rules_user_active ON keyword_rules(user_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_notification_channels_user_active ON notification_channels(user_id) WHERE is_active = true;
