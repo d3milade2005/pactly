@@ -7,8 +7,6 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
               - profile
@@ -62,6 +60,6 @@ management:
       show-details: when-authorized
 
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:8080}
   jwt:
-    secret: ${JWT_SECRET}
     expiration-ms: 86400000  # 24 hours
