@@ -130,8 +130,20 @@ CREATE TABLE keyword_rule_channels (
     PRIMARY KEY (keyword_rule_id, notification_channel_id)
 );
 
+CREATE TABLE gmail_sync_state (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    last_history_id VARCHAR(255),        -- null = never synced, do a full initial sync
+    last_synced_at  TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id)                     -- one row per user, always
+);
+
+
 -- Indexes
 CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_messages_fingerprint ON raw_messages(message_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_state_user ON gmail_sync_state(user_id);
 CREATE INDEX IF NOT EXISTS idx_commitments_user_status ON commitments(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_commitments_due_date ON commitments(due_date) WHERE status = 'PENDING';
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(created_at) WHERE status = 'PENDING';
